@@ -157,9 +157,6 @@ def test_df_to_sql_if_exists_fail(mock_g):
 
 
 @mock.patch("superset.db_engine_specs.hive.g", spec={})
-@unittest.skipUnless(
-    SupersetTestCase.is_module_installed("thrift"), "thrift not installed"
-)
 def test_df_to_sql_if_exists_fail_with_schema(mock_g):
     mock_g.user = True
     mock_database = mock.MagicMock()
