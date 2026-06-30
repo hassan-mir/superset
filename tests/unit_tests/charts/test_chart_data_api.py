@@ -236,3 +236,157 @@ def test_extract_export_filename_preserves_normal_name() -> None:
 def test_extract_export_filename_all_special_falls_back_to_none() -> None:
     """A name with no usable characters becomes None (generated downstream)."""
     assert _extract_filename("***") is None
+
+
+def test_send_chart_response_csv_zero_rows_post_processed(
+    app: "SupersetApp",
+) -> None:
+    """Zero-row CSV export with POST_PROCESSED must not raise TypeError.
+
+    get_data() encodes CSV payloads to bytes, but apply_client_processing()
+    passes the value to StringIO which expects str.  For zero-row results
+    the guard in _send_chart_response should skip client processing and
+    return a valid headers-only CSV response.
+    """
+    from unittest.mock import patch
+
+    from superset.charts.data.api import ChartDataRestApi
+    from superset.common.chart_data import ChartDataResultFormat, ChartDataResultType
+
+    csv_bytes = "col1,col2\n".encode("utf-8-sig")
+
+    query_context = MagicMock()
+    query_context.result_type = ChartDataResultType.POST_PROCESSED
+    query_context.result_format = ChartDataResultFormat.CSV
+
+    result: dict[str, Any] = {
+        "query_context": query_context,
+        "queries": [
+            {
+                "data": csv_bytes,
+                "rowcount": 0,
+                "colnames": ["col1", "col2"],
+                "coltypes": [],
+                "result_format": ChartDataResultFormat.CSV,
+            }
+        ],
+    }
+
+    with app.test_request_context("/"):
+        with (
+            patch("superset.charts.data.api.security_manager") as mock_sm,
+            patch(
+                "superset.charts.data.api.is_feature_enabled",
+                return_value=False,
+            ),
+            patch("superset.charts.data.api.apply_client_processing") as mock_acp,
+        ):
+            mock_sm.can_access.return_value = True
+            api_instance = ChartDataRestApi()
+            response = api_instance._send_chart_response(
+                result,
+                form_data={"viz_type": "pivot_table_v2"},
+                datasource=None,
+            )
+
+    # apply_client_processing must NOT be called for zero-row CSV results
+    mock_acp.assert_not_called()
+    assert response.status_code == 200
+    assert response.content_type.startswith("text/csv")
+    assert b"col1" in response.data
+    assert b"col2" in response.data
+
+
+def test_send_chart_response_csv_zero_rows_full(
+    app: "SupersetApp",
+) -> None:
+    """Zero-row CSV export with FULL result type returns headers-only CSV."""
+    from unittest.mock import patch
+
+    from superset.charts.data.api import ChartDataRestApi
+    from superset.common.chart_data import ChartDataResultFormat, ChartDataResultType
+
+    csv_bytes = "col1,col2\n".encode("utf-8-sig")
+
+    query_context = MagicMock()
+    query_context.result_type = ChartDataResultType.FULL
+    query_context.result_format = ChartDataResultFormat.CSV
+
+    result: dict[str, Any] = {
+        "query_context": query_context,
+        "queries": [
+            {
+                "data": csv_bytes,
+                "rowcount": 0,
+                "colnames": ["col1", "col2"],
+                "coltypes": [],
+                "result_format": ChartDataResultFormat.CSV,
+            }
+        ],
+    }
+
+    with app.test_request_context("/"):
+        with (
+            patch("superset.charts.data.api.security_manager") as mock_sm,
+            patch(
+                "superset.charts.data.api.is_feature_enabled",
+                return_value=False,
+            ),
+        ):
+            mock_sm.can_access.return_value = True
+            api_instance = ChartDataRestApi()
+            response = api_instance._send_chart_response(result)
+
+    assert response.status_code == 200
+    assert response.content_type.startswith("text/csv")
+    assert b"col1" in response.data
+    assert b"col2" in response.data
+
+
+def test_send_chart_response_csv_with_rows_post_processed_calls_processing(
+    app: "SupersetApp",
+) -> None:
+    """Non-empty CSV export with POST_PROCESSED must still call processing."""
+    from unittest.mock import patch
+
+    from superset.charts.data.api import ChartDataRestApi
+    from superset.common.chart_data import ChartDataResultFormat, ChartDataResultType
+
+    query_context = MagicMock()
+    query_context.result_type = ChartDataResultType.POST_PROCESSED
+    query_context.result_format = ChartDataResultFormat.CSV
+
+    result: dict[str, Any] = {
+        "query_context": query_context,
+        "queries": [
+            {
+                "data": "col1,col2\nval1,val2\n",
+                "rowcount": 1,
+                "colnames": ["col1", "col2"],
+                "coltypes": [],
+                "result_format": ChartDataResultFormat.CSV,
+            }
+        ],
+    }
+
+    with app.test_request_context("/"):
+        with (
+            patch("superset.charts.data.api.security_manager") as mock_sm,
+            patch(
+                "superset.charts.data.api.is_feature_enabled",
+                return_value=False,
+            ),
+            patch(
+                "superset.charts.data.api.apply_client_processing",
+                return_value=result,
+            ) as mock_acp,
+        ):
+            mock_sm.can_access.return_value = True
+            api_instance = ChartDataRestApi()
+            api_instance._send_chart_response(
+                result,
+                form_data={"viz_type": "pivot_table_v2"},
+                datasource=None,
+            )
+
+    mock_acp.assert_called_once()
