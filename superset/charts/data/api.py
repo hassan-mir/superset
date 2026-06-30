@@ -461,7 +461,17 @@ class ChartDataRestApi(ChartRestApi):
         # This is needed for sending reports based on text charts that do the
         # post-processing of data, eg, the pivot table.
         if result_type == ChartDataResultType.POST_PROCESSED:
-            result = apply_client_processing(result, form_data, datasource)
+            # Skip client processing for zero-row CSV results.  get_data()
+            # encodes CSV payloads to bytes, but apply_client_processing()
+            # feeds the data to StringIO which expects str, raising
+            # TypeError.  Zero-row results carry only column headers and
+            # need no pivot/formatting, so the raw payload is already the
+            # correct output — consistent with the streaming CSV path.
+            has_data_rows = any(
+                q.get("rowcount", 0) > 0 for q in result.get("queries", [])
+            )
+            if has_data_rows or result_format not in ChartDataResultFormat.table_like():
+                result = apply_client_processing(result, form_data, datasource)
 
         if result_format in ChartDataResultFormat.table_like():
             # Verify user has permission to export file
