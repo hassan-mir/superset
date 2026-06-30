@@ -97,6 +97,8 @@ def test_post_invalid_schema(dashboard_id: int, test_client, login_as_admin):
         f"api/v1/dashboard/{dashboard_id}/permalink", json={"foo": "bar"}
     )
     assert resp.status_code == 400
+    data = resp.json
+    assert isinstance(data["message"], dict)
 
 
 def test_get(dashboard_id: int, permalink_salt: str, test_client, login_as_admin):
