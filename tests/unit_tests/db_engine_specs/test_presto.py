@@ -410,3 +410,81 @@ def test_extract_errors_maps_401_to_access_denied() -> None:
     result = PrestoEngineSpec.extract_errors(Exception(msg))
     assert len(result) == 1
     assert result[0].error_type == SupersetErrorType.CONNECTION_ACCESS_DENIED_ERROR
+
+
+def test_partition_query_escapes_filter_values(mocker: MockerFixture) -> None:
+    """
+    Filter values in _partition_query must be escaped to prevent SQL injection.
+
+    The _partition_query method builds a WHERE clause from user-supplied filter
+    values. Without proper escaping, a value like "x'; DROP TABLE t; --" would
+    break out of the string literal and inject arbitrary SQL.
+    """
+    from superset.db_engine_specs.presto import PrestoEngineSpec
+    from superset.sql.parse import Table
+
+    db_mock = mocker.MagicMock()
+    db_mock.get_extra.return_value = {"version": "0.199"}
+
+    # Normal value should produce a standard WHERE clause
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=db_mock,
+        filters={"ds": "2024-01-01"},
+    )
+    assert "ds = '2024-01-01'" in result
+
+    # Value with embedded single quote should be escaped (doubled)
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=db_mock,
+        filters={"ds": "it's"},
+    )
+    assert "ds = 'it''s'" in result
+
+    # SQL injection attempt: value tries to break out of the string literal
+    malicious_value = "x'; DROP TABLE users; --"
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=db_mock,
+        filters={"ds": malicious_value},
+    )
+    # The injected SQL should remain inside the string literal
+    assert "DROP TABLE" not in result.split("'")[0]
+    assert "ds = 'x''; DROP TABLE users; --'" in result
+
+    # Multiple filters with injection attempts
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=db_mock,
+        filters={"ds": "2024-01-01", "region": "us' OR '1'='1"},
+    )
+    assert "ds = '2024-01-01'" in result
+    assert "region = 'us'' OR ''1''=''1'" in result
+
+
+def test_partition_query_trino_escapes_filter_values(
+    mocker: MockerFixture,
+) -> None:
+    """
+    TrinoEngineSpec inherits _partition_query from PrestoBaseEngineSpec;
+    verify that the escaping applies for Trino as well.
+    """
+    from superset.db_engine_specs.trino import TrinoEngineSpec
+    from superset.sql.parse import Table
+
+    db_mock = mocker.MagicMock()
+    db_mock.get_extra.return_value = {}
+
+    malicious_value = "x'; DROP TABLE users; --"
+    result = TrinoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=db_mock,
+        filters={"ds": malicious_value},
+    )
+    assert "ds = 'x''; DROP TABLE users; --'" in result

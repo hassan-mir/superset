@@ -498,7 +498,8 @@ class PrestoBaseEngineSpec(BaseEngineSpec, metaclass=ABCMeta):
         if filters:
             l = []  # noqa: E741
             for field, value in filters.items():
-                l.append(f"{field} = '{value}'")
+                escaped_value = str(value).replace("'", "''")
+                l.append(f"{field} = '{escaped_value}'")
             where_clause = "WHERE " + " AND ".join(l)
 
         # Partition select syntax changed in v0.199, so check here.
