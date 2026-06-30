@@ -47,6 +47,7 @@ attrs==25.3.0
     #   -c requirements/base-constraint.txt
     #   cattrs
     #   cyclopts
+    #   jsonlines
     #   jsonschema
     #   outcome
     #   referencing
@@ -79,7 +80,9 @@ blinker==1.9.0
     #   -c requirements/base-constraint.txt
     #   flask
 boto3==1.42.39
-    # via apache-superset
+    # via
+    #   apache-superset
+    #   dataflows-tabulator
 botocore==1.42.39
     # via
     #   boto3
@@ -92,6 +95,8 @@ brotli==1.2.0
     # via
     #   -c requirements/base-constraint.txt
     #   flask-compress
+cached-property==2.0.1
+    # via tableschema
 cachelib==0.13.0
     # via
     #   -c requirements/base-constraint.txt
@@ -126,6 +131,8 @@ cffi==2.0.0
     #   pynacl
 cfgv==3.4.0
     # via pre-commit
+chardet==7.4.3
+    # via dataflows-tabulator
 charset-normalizer==3.4.2
     # via
     #   -c requirements/base-constraint.txt
@@ -140,8 +147,10 @@ click==8.4.1
     #   click-option-group
     #   click-plugins
     #   click-repl
+    #   dataflows-tabulator
     #   flask
     #   flask-appbuilder
+    #   tableschema
     #   uvicorn
 click-didyoumean==0.3.1
     # via
@@ -192,6 +201,8 @@ cycler==0.12.1
     # via matplotlib
 cyclopts==4.2.4
     # via fastmcp
+dataflows-tabulator==1.54.3
+    # via tableschema
 db-dtypes==1.3.1
     # via pandas-gbq
 defusedxml==0.7.1
@@ -432,6 +443,8 @@ idna==3.15
     #   requests
     #   trio
     #   url-normalize
+ijson==3.5.0
+    # via dataflows-tabulator
 importlib-metadata==8.7.0
     # via
     #   keyring
@@ -445,6 +458,7 @@ isodate==0.7.2
     #   -c requirements/base-constraint.txt
     #   apache-superset
     #   apache-superset-core
+    #   tableschema
 isort==6.0.1
     # via pylint
 itsdangerous==2.2.0
@@ -472,6 +486,8 @@ jmespath==1.1.0
     # via
     #   boto3
     #   botocore
+jsonlines==4.0.0
+    # via dataflows-tabulator
 jsonpath-ng==1.8.0
     # via
     #   -c requirements/base-constraint.txt
@@ -485,6 +501,7 @@ jsonschema==4.23.0
     #   mcp
     #   openapi-schema-validator
     #   openapi-spec-validator
+    #   tableschema
 jsonschema-path==0.3.4
     # via
     #   fastmcp
@@ -508,6 +525,8 @@ limits==5.1.0
     # via
     #   -c requirements/base-constraint.txt
     #   flask-limiter
+linear-tsv==1.1.0
+    # via dataflows-tabulator
 lz4==4.4.5
     # via trino
 mako==1.3.12
@@ -604,6 +623,7 @@ openapi-spec-validator==0.7.1
 openpyxl==3.1.5
     # via
     #   -c requirements/base-constraint.txt
+    #   dataflows-tabulator
     #   pandas
 opentelemetry-api==1.39.1
     # via fastmcp
@@ -713,6 +733,10 @@ psutil==6.1.0
     # via apache-superset
 psycopg2-binary==2.9.12
     # via apache-superset
+pure-sasl==0.6.2
+    # via
+    #   pyhive
+    #   thrift-sasl
 py-key-value-aio==0.4.4
     # via fastmcp
 pyarrow==24.0.0
@@ -830,6 +854,7 @@ python-dateutil==2.9.0.post0
     #   pandas
     #   pyhive
     #   shillelagh
+    #   tableschema
     #   trino
 python-dotenv==1.2.2
     # via
@@ -874,6 +899,7 @@ regex==2026.4.4
 requests==2.33.0
     # via
     #   -c requirements/base-constraint.txt
+    #   dataflows-tabulator
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
@@ -883,6 +909,7 @@ requests==2.33.0
     #   requests-cache
     #   requests-oauthlib
     #   shillelagh
+    #   tableschema
     #   tiktoken
     #   trino
 requests-cache==1.2.1
@@ -895,6 +922,8 @@ rfc3339-validator==0.1.4
     # via
     #   -c requirements/base-constraint.txt
     #   openapi-schema-validator
+rfc3986==2.0.0
+    # via tableschema
 rich==13.9.4
     # via
     #   -c requirements/base-constraint.txt
@@ -944,9 +973,13 @@ simplejson==4.1.1
 six==1.17.0
     # via
     #   -c requirements/base-constraint.txt
+    #   dataflows-tabulator
+    #   linear-tsv
     #   prison
     #   python-dateutil
     #   rfc3339-validator
+    #   tableschema
+    #   thrift-sasl
     #   wtforms-json
 slack-sdk==3.35.0
     # via
@@ -967,6 +1000,7 @@ sqlalchemy==1.4.54
     #   alembic
     #   apache-superset
     #   apache-superset-core
+    #   dataflows-tabulator
     #   duckdb-engine
     #   flask-appbuilder
     #   flask-sqlalchemy
@@ -1001,10 +1035,21 @@ statsd==4.0.1
     # via apache-superset
 syntaqlite==0.4.2
     # via apache-superset
+tableschema==1.21.0
+    # via apache-superset
 tabulate==0.10.0
     # via
     #   -c requirements/base-constraint.txt
     #   apache-superset
+thrift==0.23.0
+    # via
+    #   apache-superset
+    #   pyhive
+    #   thrift-sasl
+thrift-sasl==0.4.3
+    # via
+    #   apache-superset
+    #   pyhive
 tiktoken==0.13.0
     # via apache-superset
 tomli-w==1.2.0
@@ -1063,6 +1108,10 @@ tzlocal==5.2
     # via trino
 uncalled-for==0.2.0
     # via fastmcp
+unicodecsv==0.14.1
+    # via
+    #   dataflows-tabulator
+    #   tableschema
 url-normalize==2.2.1
     # via
     #   -c requirements/base-constraint.txt
@@ -1134,6 +1183,7 @@ wtforms-json==0.3.5
 xlrd==2.0.1
     # via
     #   -c requirements/base-constraint.txt
+    #   dataflows-tabulator
     #   pandas
 xlsxwriter==3.2.9
     # via
