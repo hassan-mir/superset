@@ -169,7 +169,9 @@ class DashboardPermalinkRestApi(BaseSupersetApi):
             ).run()
             url = url_for("Superset.dashboard_permalink", key=key, _external=True)
             return self.response(201, key=key, url=url)
-        except (ValidationError, DashboardPermalinkInvalidStateError) as ex:
+        except ValidationError as ex:
+            return self.response(400, message=ex.messages)
+        except DashboardPermalinkInvalidStateError as ex:
             return self.response(400, message=str(ex))
         except (
             DashboardAccessDeniedError,

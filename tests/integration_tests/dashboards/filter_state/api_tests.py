@@ -77,6 +77,8 @@ def test_post_bad_request_non_string(test_client, login_as_admin, dashboard_id: 
         },
     )
     assert resp.status_code == 400
+    data = resp.json
+    assert isinstance(data["message"], dict)
 
 
 def test_post_bad_request_non_json_string(
@@ -89,6 +91,8 @@ def test_post_bad_request_non_json_string(
         f"api/v1/dashboard/{dashboard_id}/filter_state", json=payload
     )
     assert resp.status_code == 400
+    data = resp.json
+    assert isinstance(data["message"], dict)
 
 
 def test_post_access_denied(test_client, login_as, dashboard_id: int):
@@ -230,6 +234,8 @@ def test_put_bad_request_non_string(test_client, login_as_admin, dashboard_id: i
         },
     )
     assert resp.status_code == 400
+    data = resp.json
+    assert isinstance(data["message"], dict)
 
 
 def test_put_bad_request_non_json_string(
@@ -242,6 +248,8 @@ def test_put_bad_request_non_json_string(
         },
     )
     assert resp.status_code == 400
+    data = resp.json
+    assert isinstance(data["message"], dict)
 
 
 def test_put_access_denied(test_client, login_as, dashboard_id: int):
