@@ -410,3 +410,87 @@ def test_extract_errors_maps_401_to_access_denied() -> None:
     result = PrestoEngineSpec.extract_errors(Exception(msg))
     assert len(result) == 1
     assert result[0].error_type == SupersetErrorType.CONNECTION_ACCESS_DENIED_ERROR
+
+
+def test_partition_query_escapes_filter_values() -> None:
+    """
+    Test that _partition_query properly escapes filter values to prevent
+    SQL injection via single-quote breakout.
+    """
+    from superset.db_engine_specs.presto import PrestoBaseEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    sql = PrestoBaseEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=database,
+        filters={"ds": "'; DROP TABLE users; --"},
+    )
+    # The injected single quote must be escaped (doubled), not close the literal
+    assert "'';" in sql
+    assert "DROP TABLE" not in sql.split("'")[0]
+    # The value should be safely wrapped
+    assert "\"ds\" = '''; DROP TABLE users; --'" in sql
+
+
+def test_partition_query_quotes_filter_field_names() -> None:
+    """
+    Test that _partition_query quotes filter field identifiers with double quotes.
+    """
+    from superset.db_engine_specs.presto import PrestoBaseEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    sql = PrestoBaseEngineSpec._partition_query(
+        table=Table("tbl", "sch"),
+        indexes=[],
+        database=database,
+        filters={"event_type": "click", "region": "us-east"},
+    )
+    assert "\"event_type\" = 'click'" in sql
+    assert "\"region\" = 'us-east'" in sql
+
+
+def test_partition_query_quotes_order_by_fields() -> None:
+    """
+    Test that _partition_query quotes ORDER BY field identifiers.
+    """
+    from superset.db_engine_specs.presto import PrestoBaseEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    sql = PrestoBaseEngineSpec._partition_query(
+        table=Table("tbl", "sch"),
+        indexes=[],
+        database=database,
+        order_by=[("ds", True), ("event_type", False)],
+    )
+    assert '"ds" DESC' in sql
+    assert '"event_type"' in sql
+
+
+def test_partition_query_normal_values_unchanged() -> None:
+    """
+    Test that normal (non-malicious) filter values pass through correctly.
+    """
+    from superset.db_engine_specs.presto import PrestoBaseEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    sql = PrestoBaseEngineSpec._partition_query(
+        table=Table("events", "analytics"),
+        indexes=[],
+        database=database,
+        limit=10,
+        order_by=[("ds", True)],
+        filters={"ds": "2024-01-01", "region": "us-west-2"},
+    )
+    assert "\"ds\" = '2024-01-01'" in sql
+    assert "\"region\" = 'us-west-2'" in sql
+    assert "LIMIT 10" in sql
+    assert '"ds" DESC' in sql
