@@ -388,6 +388,132 @@ def test_handle_boolean_filter() -> None:
     )
 
 
+def test_partition_query_escapes_filter_values() -> None:
+    """
+    Test that ``_partition_query`` escapes single quotes in filter values
+    to prevent SQL injection.
+
+    The malicious input ``'; DROP TABLE users; --`` must be rendered as the
+    SQL string literal ``'''; DROP TABLE users; --'`` (the leading ``'`` is
+    doubled to ``''``, keeping everything inside the string literal).
+    """
+    from superset.db_engine_specs.presto import PrestoEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=database,
+        filters={"ds": "'; DROP TABLE users; --"},
+    )
+    # The escaped value: single quote doubled → ''
+    assert "= '''; DROP TABLE users; --'" in result
+    # Ensure unescaped payload is NOT present as a stand-alone SQL fragment.
+    # The raw value "'; DROP TABLE" must never appear right after "= "
+    # (that would mean the quote closed the literal and the rest is SQL).
+    assert "= ''; DROP TABLE" not in result
+
+
+def test_partition_query_quotes_filter_field_names() -> None:
+    """
+    Test that ``_partition_query`` double-quotes filter field names
+    to prevent identifier injection.
+    """
+    from superset.db_engine_specs.presto import PrestoEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=database,
+        filters={"ds": "2024-01-01"},
+    )
+    assert '"ds" =' in result
+    assert "= '2024-01-01'" in result
+
+
+def test_partition_query_quotes_order_by_field_names() -> None:
+    """
+    Test that ``_partition_query`` double-quotes order_by field names
+    to prevent identifier injection.
+    """
+    from superset.db_engine_specs.presto import PrestoEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=database,
+        order_by=[("ds", True)],
+    )
+    assert '"ds" DESC' in result
+
+
+def test_partition_query_escapes_double_quotes_in_identifiers() -> None:
+    """
+    Test that ``_partition_query`` escapes double-quote characters inside
+    identifier names by doubling them (ANSI SQL identifier quoting).
+    """
+    from superset.db_engine_specs.presto import PrestoEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table"),
+        indexes=[],
+        database=database,
+        filters={'evil"col': "safe_value"},
+    )
+    assert '"evil""col"' in result
+
+
+def test_partition_query_preserves_behaviour_without_filters() -> None:
+    """
+    Verify that ``_partition_query`` still returns valid SQL when no
+    filters or ordering are provided.
+    """
+    from superset.db_engine_specs.presto import PrestoEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.199"}
+
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=database,
+    )
+    assert "WHERE" not in result
+    assert "ORDER BY" not in result
+    assert '"my_table$partitions"' in result
+
+
+def test_partition_query_old_presto_version() -> None:
+    """
+    Verify that ``_partition_query`` generates correct SQL for Presto < 0.199
+    with escaped filter values.
+    """
+    from superset.db_engine_specs.presto import PrestoEngineSpec
+
+    database = mock.MagicMock()
+    database.get_extra.return_value = {"version": "0.198"}
+
+    result = PrestoEngineSpec._partition_query(
+        table=Table("my_table", "my_schema"),
+        indexes=[],
+        database=database,
+        filters={"ds": "val'ue"},
+    )
+    assert "SHOW PARTITIONS FROM" in result
+    assert "val''ue" in result
+
+
 def test_extract_errors_maps_401_to_access_denied() -> None:
     """
     Regression for #33554: Presto 401 errors must surface as

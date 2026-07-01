@@ -491,14 +491,17 @@ class PrestoBaseEngineSpec(BaseEngineSpec, metaclass=ABCMeta):
         if order_by:
             l = []  # noqa: E741
             for field, desc in order_by:
-                l.append(field + " DESC" if desc else "")
+                quoted = f'"{field.replace(chr(34), chr(34) * 2)}"'
+                l.append(f"{quoted} DESC" if desc else "")
             order_by_clause = "ORDER BY " + ", ".join(l)
 
         where_clause = ""
         if filters:
             l = []  # noqa: E741
             for field, value in filters.items():
-                l.append(f"{field} = '{value}'")
+                quoted_field = f'"{field.replace(chr(34), chr(34) * 2)}"'
+                escaped_value = str(value).replace("'", "''")
+                l.append(f"{quoted_field} = '{escaped_value}'")
             where_clause = "WHERE " + " AND ".join(l)
 
         # Partition select syntax changed in v0.199, so check here.
